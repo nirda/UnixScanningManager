@@ -1,0 +1,120 @@
+1) יש להתקין את sane, הכוונה לפרוייקט באתר http://www.sane-project.org/
+ניתן להעזר בסקריפט 1_install_sane
+
+2) מכיוון שה epson v37 לא נתמכים ע"י sane, יש להוריד ולהתקין דרייברים יעודיים (epkowa). הדרייברים נמצאים באתר 
+http://download.ebz.epson.net/dsc/search/01/search/?OSC=LX
+כאשר הקבצים שהורדנו ל v37 עבור mint 16 ב 64 bit:
+
+iscan_2.29.3-1~usb0.1.ltdl7_amd64.deb
+iscan-data_1.26.0-1_all.deb
+
+iscan-plugin-perfection-v370_1.0.0-2_amd64.deb
+iscan-plugin-gt-f670_2.1.2-1_amd64.deb
+הקבצים יושבים גם בתיקיית downloads בתקיית ההתקנה (חלק מהקבצים התעדכנו באתר, אבל אלו הקבצים שאנחו התקנו).
+
+3) לאחר ההתקנה sane-find-scanner אמור לזהות את הסורקים, אבל scanimage -L עדיין לא.
+משמע, כאשר נריץ sane-find-scanner נקבל שה v37 מחובר (אם לא אז משהו רע קרה וכרגע אין טעם להמשיך עד שנגיע לשלב שהפקודה הנ"ל מזהה את  הסורק) אבל בהרצת scanimage -L ייתכן שהסורק לא יזוהה ע"י sane.
+
+4) אם בהרצת scanimage -L הסורק לא מזוהה, אז תתכנה כמה סיבות:
+* בעיית הרשאות
+* בעייה בקבצי הקונפיגורציה
+* משהו מונע מ sane להריץ את ה epkow
+
+לגבי בעיית הרשאות, יש לנסות להריץ את הסריקה כסופר יוזר, אם זה מצליח אז יש בעיית הרשאות. אני לא נתקלתי בבעיה הזו, אבל יש שיחות על זה ברשת, לדוגמא ב
+ http://superuser.com/questions/298298/scanning-only-works-under-sudo-ubuntu
+
+לגבי קבצי הקונפיגורציה, יש להוסיף את הדרייבר לרשימה בקובץ /usr/local/etc/sane.d/dll.conf (פשוט מוסיפים את המילה epkowa לרשימה)
+
+
+לגבי טעינת הדרייבר, נשתמש בפקודה SANE_DEBUG_DLL=128 scanimage -L כדי לראות אילו דרייברים הוא מנסה לטעון.
+* לאחר שהוספתי את השם והרצתי שוב את הפקודה קיבלתי הודעה שהקבצים libusb-epkowa.la, libusb-epkowa.so.1,libusb-epkowa.so.1.0.15 לא מופיעים בתקייה /usr/local/lib/sane ולאחר חיפוש הסתבר שהם הותקנו ב /usr/lib/sane. העתק הדבק (או symlink) פתר את הבעיה.
+
+לשם לב שיש עוד בעיות ידועות, שאני לא נתקלתי בהן, לדוגמא פה (הוספת usb לקובץ /etc/sane.d/epkowa.conf כמתואר ב https://help.ubuntu.com/community/sane ב Installing your USB scanner)
+
+עכשיו לא אמורות להיות בעיות הקשורות לדרייבר ו scanimage -L אמור לזהות את הסורקים וכמובן, אפשר לסרוק.
+
+
+5) מנגנון השמות לסורקים (names)
+השלב הבא הוא ליצור לסורקים שמות קבועים, שמסתמכים על הכניסות הפיזיות של המחשב (כך שבמהלך הדלקה חדש או נפילת מתח באמצע ניסוי הפעולות שלנו תהיינה מינימליות).
+המנגנון שאחראי על כך נקרא udev. סיכום כללי למתחילים ב http://www.dreamincode.net/forums/topic/20020-using-udev-to-manage-hardware-in-linux/
+
+נמקם ב /etc/udev/rules.d/ קובץ עם חוקים מתאימים כך שברגע שיזהה סורק הוא יצור symlink מתאים וישייך אותו לקבוצה SCANED. הקבצים יהיו
+10-NQB.rules
+40-saned.rules (all epson v37 scanners to scaned group)
+
+(עותק של הקבצים לדוגמא קיים בתקיית ההתקנה)
+
+הסיבה שהקובץ הראשון מתחיל ב 10 היא שקבצי החוקים מפוענחים בסדר לקסיקוגרפי ואנחנו רוצים ששלנו יפוענח קודם. חוקים לדוגמא:
+ATTR{product}=="EPSON Perfection V37/V370", KERNEL=="1-4", SYMLINK+="bus/usb/001/SCANNER1"
+ATTR{product}=="CanoScan",SYMLINK+="bus/usb/00%s{busnum}/NQBSCANNER%k"
+ATTR{product}=="EPSON Perfection V37/V370", SYMLINK+="bus/usb/00%s{busnum}/NQBSCANNER%k"
+אנחנו משתמשים בסופו של דבר בשני החוקים האחרונים.
+איך רואים שהחוקים באו לידי ביטוי? 
+כאשר מריצים scanimage -L כל סורק שעונה על התנאי יקבל שני שמות, אחד השם של ה symlink שמוגדר בחוקים ואחד השם של הקובץ במערכת ההפעלה שמייצג את הסורק.
+לדוגמא:
+device `genesys:libusb:002:031' is a Canon LiDE 110 flatbed scanner
+device `genesys:libusb:002:NQBSCANNER25' is a Canon LiDE 110 flatbed scanner
+אם היתה בעיה בחוקים היינו מקבלים רק 
+device `genesys:libusb:002:031' is a Canon LiDE 110 flatbed scanner
+
+כמו כן אפשר לבדוק שנוצר הsymlink כרצוי במקום להריץ את scanimage -L שלוקח זמן, במקרה שלנו שבתיקייה /dev/bus/usb/002 נוצר symlink בשם NQBSCANNER25.
+
+6) הסבר על אופן בניית החוקים:
+שימו לב שאחרי כל שינוי בחוקים צריך לרפרש את החוקים של ה udev בעזרת sudo udevadm control --reload-rules ולנתק ולחבר את הסורק.
+
+בסופו של דבר מעניינים אותנו שני דברים, המאפיין product שמציין את הדגם של הסורק (זה בשביל שרק סורקים שמחוברים יקבלו את השם הנוסף, אפשר לוותר) והיציאה הפיזית שנמצאת בשדה KERNEL. איך יודעים לבחור את הערכים?
+ננסה בעזרת התיקייה /sys/bus/usb/devices/ לגשת אל המידע בסורק. המטרה שלנו היא להריץ את הפקודה udevadm info -a -p  /sys/bus/usb/devices/num1-num2 כאשר num1-num2 הם מאפיינים של היציאה הפיזית, נותר אם כן לגלות את NUM1,NUM2.
+אם נריץ usb-devices נקבל מה מחובר לכל אחת מהיציאות הפיזיות. לדוגמא כאשר הסורק מחובר ליציאה הפיזית הימנית-קדמית בפלט של הפקודה נקבל בין היתר (בהנחה שהסורק דלוק :)):
+T:  Bus=02 Lev=01 Prnt=01 Port=04 Cnt=01 Dev#= 16 Spd=480 MxCh= 0
+D:  Ver= 2.00 Cls=ff(vend.) Sub=ff Prot=ff MxPS=64 #Cfgs=  1
+P:  Vendor=04b8 ProdID=014a Rev=01.00
+S:  Manufacturer=EPSON
+S:  Product=EPSON Perfection V37/V370
+C:  #Ifs= 1 Cfg#= 1 Atr=c0 MxPwr=2mA
+I:  If#= 0 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=ff Prot=ff Driver=(none)
+
+במקרה שלנו Bus=02 ולכן num1=2. אם נחפש בתקייה /sys/bus/usb/devices/ נראה שאין 2-4 ואכן במקרה שלנו NUM2=5 (כנראה Port+1 או Port + אחד מהמאפיינים האחרים).
+וסה"כ אם נריץ udevadm info -a -p  /sys/bus/usb/devices/2-5 נקבל את רשימת כל המאפיינים של הסורק. פלט חלקי:
+  looking at device '/devices/pci0000:00/0000:00:1d.7/usb2/2-5':
+    KERNEL=="2-5"
+    SUBSYSTEM=="usb"
+    DRIVER=="usb"
+    ATTR{bDeviceSubClass}=="ff"
+    ATTR{bDeviceProtocol}=="ff"
+    ATTR{devpath}=="5"
+    ATTR{idVendor}=="04b8"
+    ATTR{speed}=="480"
+    ATTR{bNumInterfaces}==" 1"
+    ATTR{bConfigurationValue}=="1"
+    ATTR{bMaxPacketSize0}=="64"
+    ATTR{busnum}=="2"
+    ATTR{devnum}=="16"
+    ATTR{configuration}==""
+    ATTR{bMaxPower}=="2mA"
+    ATTR{authorized}=="1"
+    ATTR{bmAttributes}=="c0"
+    ATTR{bNumConfigurations}=="1"
+    ATTR{maxchild}=="0"
+    ATTR{bcdDevice}=="0100"
+    ATTR{avoid_reset_quirk}=="0"
+    ATTR{quirks}=="0x0"
+    ATTR{version}==" 2.00"
+    ATTR{urbnum}=="9"
+    ATTR{ltm_capable}=="no"
+    ATTR{manufacturer}=="EPSON"
+    ATTR{removable}=="unknown"
+    ATTR{idProduct}=="014a"
+    ATTR{bDeviceClass}=="ff"
+    ATTR{product}=="EPSON Perfection V37/V370"
+
+בסופו של דבר אנחנו משתמשים בחוקים:
+ATTR{product}=="CanoScan",SYMLINK+="bus/usb/00%s{busnum}/NQBSCANNER%k"
+ATTR{product}=="EPSON Perfection V37/V370", SYMLINK+="bus/usb/00%s{busnum}/NQBSCANNER%k"
+כאשר %k מסמל את ה kernel, היציאה הפיזית ו %s{busnum} מייצג את היציאה המתאימה ב bus הראשי.
+עוד פרמטרים ניתן למצוא כאן:
+http://stackoverflow.com/questions/12818987/pass-attridvendor-as-argument-in-udev-script
+
+7) כמו כן, נשים לב שב 40-saned.rules אנחנו מקשרים את הSYMLINK לקבוצת הרשאות מסויימת, ושהיוזר NQB צריך להיות מקושר גם הוא לקבוצה, לדוגמא ע"י הפקודה
+usermod -aG groupname username
+
+

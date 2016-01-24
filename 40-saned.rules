@@ -1,0 +1,3 @@
+# Epson Perfection V37 Photo
+ATTRS{idVendor}=="04b8", ATTRS{idProduct}=="014a",GROUP="saned"
+ATTRS{idVendor}=="04a9", ATTRS{idProduct}=="1907",GROUP="saned"

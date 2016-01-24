@@ -1,0 +1,2 @@
+ATTR{product}=="CanoScan",SYMLINK+="bus/usb/00%s{busnum}/NQBSCANNER%k"
+ATTR{product}=="EPSON Perfection V37/V370", SYMLINK+="bus/usb/00%s{busnum}/NQBSCANNER%k"
